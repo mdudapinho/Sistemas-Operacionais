@@ -118,6 +118,7 @@ int main (int argc, char **argv, char **envp)
    // Teste: inserir N elemementos na fila e verificar a estrutura
    printf ("Testando insercao de %d elementos...\n", N) ;
    fila0 = NULL ;
+
    for (i=0; i<N; i++)
    {
       assert (queue_size ((queue_t*) fila0) == i) ;
@@ -336,4 +337,3 @@ int main (int argc, char **argv, char **envp)
 
    exit(0) ;
 }
-
