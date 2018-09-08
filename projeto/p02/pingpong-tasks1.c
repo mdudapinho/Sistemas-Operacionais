@@ -42,10 +42,9 @@ int main (int argc, char *argv[])
    printf ("Main INICIO\n");
 
    pingpong_init () ;
-
    task_create (&Ping, BodyPing, "    Ping") ;
    task_create (&Pong, BodyPong, "        Pong") ;
-
+   printf ("aqui na main\n");
    task_switch (&Ping) ;
    task_switch (&Pong) ;
 
