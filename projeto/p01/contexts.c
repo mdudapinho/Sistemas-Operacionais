@@ -56,9 +56,9 @@ int main (int argc, char *argv[])
 
    printf ("Main INICIO\n");
 
-   getcontext (&ContextPing);
-
+    getcontext (&ContextPing);
    stack = malloc (STACKSIZE) ;
+
    if (stack)
    {
       ContextPing.uc_stack.ss_sp = stack ;
@@ -72,7 +72,8 @@ int main (int argc, char *argv[])
       exit (1);
    }
 
-   makecontext (&ContextPing, (void*)(*BodyPing), 1, "    Ping");
+
+   // makecontext (&ContextPing, (void*)(*BodyPing), 1, "    Ping");
 
    getcontext (&ContextPong);
 
@@ -93,6 +94,7 @@ int main (int argc, char *argv[])
    makecontext (&ContextPong, (void*)(*BodyPong), 1, "        Pong");
 
    swapcontext (&ContextMain, &ContextPing);
+   printf ("-------------------------------------------------------------------------\n");
    swapcontext (&ContextMain, &ContextPong);
 
    printf ("Main FIM\n");

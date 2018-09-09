@@ -13,7 +13,6 @@ void BodyPing (void * arg)
 {
    int i ;
    char* name = (char *) arg ;
-
    for (i=0; i<4; i++)
    {
       printf ("%s %d\n", name, i) ;

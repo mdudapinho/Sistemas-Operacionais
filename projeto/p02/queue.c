@@ -12,7 +12,7 @@ void queue_append (queue_t **queue, queue_t *elem) {
 	else if (elem->prev != NULL || elem->next!=NULL)
 	   	printf ("\nElemento ligado a outra fila!\n");
 	else if (*queue == NULL){
-       	printf ("\nFila criada!\n");
+       //	printf ("\nFila criada!\n");
     	*queue=elem;
     	elem->prev=elem;
     	elem->next = elem;
