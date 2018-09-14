@@ -7,7 +7,7 @@
 #define N 100
 task_t t_main, *fila0= NULL,*antigo=NULL,*atual;
 int cont_id=1;
-
+int flag=0;
 void pingpong_init () {
     getcontext(&t_main.context);
     t_main.prev = NULL;
@@ -40,19 +40,23 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
 }
 int task_switch (task_t *task) {
     antigo=atual;
-
     atual=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)task);
-    queue_append((queue_t**)&fila0,(queue_t*)antigo);
+    if (!flag){
+      queue_append((queue_t**)&fila0,(queue_t*)antigo);
+
+    }
+    flag=0;
     return swapcontext (&(antigo->context), &(atual->context));
 
 }
 
 void task_exit (int exitCode) {
-    /*task_switch (&t_main);
-    antigo=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)antigo);*/
-    antigo=atual;
+    flag=1;
+    task_switch (&t_main);
+    //antigo=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)antigo);
+    /*antigo=atual;
     atual=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)&t_main);
-    swapcontext (&(antigo->context), &(atual->context));
+    swapcontext (&(antigo->context), &(atual->context));*/
 
 }
 
