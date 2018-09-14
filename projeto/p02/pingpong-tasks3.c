@@ -26,6 +26,7 @@ int main (int argc, char *argv[])
    pingpong_init () ;
 
    // cria MAXTASK tarefas, ativando cada uma apos sua criacao
+   
    for (i=0; i<MAXTASK; i++)
    {
      task_create (&task, BodyTask, NULL) ;
