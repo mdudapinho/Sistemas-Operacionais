@@ -9,8 +9,7 @@
 
 task_t Pang, Peng, Ping, Pong, Pung ;
 
-void Body (void * arg)
-{
+void Body (void * arg){
    int i ;
 
    for (i=0; i<4; i++)
@@ -22,8 +21,7 @@ void Body (void * arg)
    task_exit (0) ;
 }
 
-int main (int argc, char *argv[])
-{
+int main (int argc, char *argv[]){
    printf ("Main INICIO\n");
 
    pingpong_init () ;
