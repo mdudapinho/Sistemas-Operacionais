@@ -37,11 +37,11 @@ void dispatcher_body (){
     #ifdef DEBUG
         printf ("dispatcher_body chamado\n") ;
     #endif
-    while (userTasks){
+    while (userTasks && next!=&t_main){
         //printf ("\nvai chamar scheduler\n");
         next = scheduler();
         //printf ("\nsaiu do scheduler \n");
-        if (next)
+        if (next && next!=&t_main)
             task_switch(next);
     }
     #ifdef DEBUG
