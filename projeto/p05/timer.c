@@ -17,16 +17,16 @@ struct sigaction action ;
 // estrutura de inicialização to timer
 struct itimerval timer;
 
-// tratador do sinal
-void tratador (int signum)
-{
-  printf ("Recebi o sinal %d\n", signum) ;
-}
+// // tratador do sinal
+// void tratador (int signum)
+// {
+//   printf ("Recebi o sinal %d\n", signum) ;
+// }
 
 int main ()
 {
   // registra a a��o para o sinal de timer SIGALRM
-  action.sa_handler = tratador ;
+  action.sa_handler = task_y ;
   sigemptyset (&action.sa_mask) ;
   action.sa_flags = 0 ;
   if (sigaction (SIGALRM, &action, 0) < 0)
@@ -49,5 +49,5 @@ int main ()
   }
 
   // laco vazio
-  while (1) ;
+  	while (1) ;
 }
