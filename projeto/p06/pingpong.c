@@ -18,7 +18,8 @@ task_t t_main, dispatcher, *fila0= NULL,*antigo=NULL,*atual, *next, *fila_espera
 int cont_id=1;
 int userTasks=0;
 int tick=20;
-int ticks_total=0;
+int ticks=0;
+
 task_t* scheduler(){
     //FIFO
     if (fila0==&(t_main) && userTasks==1){
@@ -71,7 +72,9 @@ void pingpong_init () {
     t_main.next = NULL;
     t_main.tid= 0;
     t_main.status=0;
-    t_main=ntick=0;
+    t_main.ntick=0;    //numero de ticks usados pela tarefa
+    t_main.tick_total=ticks;   //numero de ticks total do processador
+    t_main.ativacoes=1;
     atual=&t_main;    //queue_append ((queue_t **) &fila0, (queue_t*) atual);
     setvbuf (stdout, 0, _IONBF, 0) ;
     action.sa_handler = task_yield ;
@@ -109,8 +112,9 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
     task->prev=NULL;
     task->next=NULL;
     task->status=0;
-    task->ntick=0;
-
+    task->ntick=0;    //numero de ticks usados pela tarefa
+    task->tick_total=ticks;   //numero de ticks total do processador
+    task->ativacoes=0;
     makecontext (&(task->context), (void*)(*start_func), 1, arg);
     queue_append((queue_t**)&fila0,(queue_t*)task);
     userTasks++;
@@ -124,16 +128,22 @@ int task_switch (task_t *task) {
     antigo=atual;
     atual=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)task);
     userTasks--;
-    if (antigo->status==0){
+    if (antigo->status==0){   //entra quando a tarefa for voltar para a fila
         queue_append((queue_t**)&fila0,(queue_t*)antigo);
         userTasks++;
         #ifdef DEBUG
             printf ("task_switch: colocou a tarefa %d na fila\n", antigo->tid) ;
         #endif
     }
+    else if (antigo->status==1){    //quando a tarefa chegar ao fim
+        antigo->tick_total=ticks-antigo->tick_total;
+        printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->ntick, antigo->tick_total, antigo->ativacoes);
+
+    }
     #ifdef DEBUG
         printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
     #endif
+    atual->ativacoes=atual->ativacoes+1;
     return swapcontext (&(antigo->context), &(atual->context));
 }
 
@@ -142,10 +152,12 @@ void task_exit (int exitCode) {
     #ifdef DEBUG
         printf ("task_exit: vai retirar a tarefa %d\n", atual->tid) ;
     #endif
-    if(atual->tid == dispatcher.tid)
+    if(atual->tid == dispatcher.tid){
         task_switch (&t_main);
-    else
+    }
+    else{
         task_switch (&dispatcher);
+    }
 }
 
 int task_id () {
@@ -203,13 +215,23 @@ void task_yield (){
 }
 
 void task_yield_temp (){
-   ticks_total++
+    ticks++;
+    atual->ntick+=1;
     if(tick>0){
+
         tick--;
-        atual->ntick++;
     }
     else{
         tick=20;
         task_yield();
     }
+}
+
+unsigned int systime (){
+  #ifdef DEBUG
+      printf ("systime: retornou valor da task %d\n", ticks) ;
+  #endif
+
+  return (ticks);
+
 }

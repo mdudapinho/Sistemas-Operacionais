@@ -16,8 +16,9 @@ typedef struct task_t
     int tid ;
     ucontext_t context;
     int status ; //0= pronta; 1=fim; 2== suspensa
-    int ntick;
-    int tick_t;
+    int ntick;    //numero de ticks total do processador
+    int tick_total;   //numero de ticks usados pela tarefa
+    int ativacoes; //numero de ativacoes da tarefa
 } task_t ;
 // para usar com a biblioteca de filas (cast)
 // ID da tarefa

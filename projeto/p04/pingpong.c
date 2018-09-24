@@ -42,7 +42,7 @@ task_t* scheduler(){
         printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
     #endif
     aux->aging=0;
-    return aux;
+    return aux; 
 }
 
 void dispatcher_body (){
