@@ -18,6 +18,43 @@ task_t t_main, dispatcher, *fila0= NULL,*antigo=NULL,*atual, *next, *fila_espera
 int cont_id=1;
 int userTasks=0;
 int tick=20;
+
+
+int task_switch (task_t *task) {
+    antigo=atual;
+    atual=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)task);
+    userTasks--;
+    if (antigo->status==0){
+        queue_append((queue_t**)&fila0,(queue_t*)antigo);
+        userTasks++;
+        #ifdef DEBUG
+            printf ("task_switch: colocou a tarefa %d na fila\n", antigo->tid) ;
+        #endif
+    }
+    #ifdef DEBUG
+        printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
+    #endif
+    return swapcontext (&(antigo->context), &(atual->context));
+}
+
+void task_yield (){
+
+    #ifdef DEBUG
+        printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
+    #endif
+    task_switch (&dispatcher);
+}
+
+void task_yield_temp (){
+    if(tick>0){
+        tick--;
+    }
+    else{
+        tick=20;
+        task_yield();
+    }
+}
+
 task_t* scheduler(){
     //FIFO
     if (fila0==&(t_main) && userTasks==1){
@@ -72,7 +109,7 @@ void pingpong_init () {
     t_main.status=0;
     atual=&t_main;    //queue_append ((queue_t **) &fila0, (queue_t*) atual);
     setvbuf (stdout, 0, _IONBF, 0) ;
-    action.sa_handler = task_yield ;
+    action.sa_handler = task_yield_temp ;
     sigemptyset (&action.sa_mask) ;
     action.sa_flags = 0 ;
     if (sigaction (SIGALRM, &action, 0) < 0)
@@ -81,8 +118,8 @@ void pingpong_init () {
       exit (1) ;
     }
    // ajusta valores do temporizador
-    timer.it_value.tv_usec = 2000 ;      // primeiro disparo, em micro-segundos
-    timer.it_interval.tv_usec = 2000 ;   // disparos subsequentes, em micro-segundos
+    timer.it_value.tv_usec = 1000 ;      // primeiro disparo, em micro-segundos
+    timer.it_interval.tv_usec = 1000 ;   // disparos subsequentes, em micro-segundos
     task_create(&dispatcher,dispatcher_body,NULL);
     #ifdef DEBUG
         printf ("pingpong_init iniciado\n") ;
@@ -116,22 +153,7 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
     return task->tid;
 }
 
-int task_switch (task_t *task) {
-    antigo=atual;
-    atual=(task_t*)queue_remove((queue_t**)&fila0,(queue_t*)task);
-    userTasks--;
-    if (antigo->status==0){
-        queue_append((queue_t**)&fila0,(queue_t*)antigo);
-        userTasks++;
-        #ifdef DEBUG
-            printf ("task_switch: colocou a tarefa %d na fila\n", antigo->tid) ;
-        #endif
-    }
-    #ifdef DEBUG
-        printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
-    #endif
-    return swapcontext (&(antigo->context), &(atual->context));
-}
+
 
 void task_exit (int exitCode) {
     atual->status=1;
@@ -188,22 +210,4 @@ void task_resume (task_t *task){
     #endif
 
 
-}
-
-void task_yield (){
-
-    #ifdef DEBUG
-        printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
-    #endif
-    task_switch (&dispatcher);
-}
-
-void task_yield_temp (){
-    if(tick>0){
-        tick--;
-    }
-    else{
-        tick=20;
-        task_yield();
-    }
 }

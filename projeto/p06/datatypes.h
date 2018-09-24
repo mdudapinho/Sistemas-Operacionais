@@ -16,6 +16,8 @@ typedef struct task_t
     int tid ;
     ucontext_t context;
     int status ; //0= pronta; 1=fim; 2== suspensa
+    int prio_static;
+    int aging;
     int ntick;    //numero de ticks total do processador
     int tick_total;   //numero de ticks usados pela tarefa
     int ativacoes; //numero de ativacoes da tarefa

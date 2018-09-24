@@ -20,8 +20,29 @@ int userTasks=0;
 int tick=20;
 int ticks=0;
 
+void task_yield (){
+
+    #ifdef DEBUG
+        printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
+    #endif
+    task_switch (&dispatcher);
+}
+
+void task_yield_temp (){
+    ticks++;
+    atual->ntick+=1;
+    if(tick>0){
+
+        tick--;
+    }
+    else{
+        tick=19;
+        task_yield();
+    }
+}
+
 task_t* scheduler(){
-    //FIFO
+    /*//FIFO
     if (fila0==&(t_main) && userTasks==1){
         #ifdef DEBUG
             printf ("scheduler: passou para a task %d\n", fila0->tid) ;
@@ -39,7 +60,40 @@ task_t* scheduler(){
             printf ("scheduler: passou para a task %d\n", fila0->next->tid) ;
         #endif
         return fila0;
+    }*/
+
+    //PRIORIDADE(ENVELHECIMENTO)!
+    if (userTasks==1){ //so a main
+        return fila0;
+        #ifdef DEBUG
+            printf ("scheduler retornou a main\n") ;
+        #endif
     }
+    int i;
+    task_t *elem=fila0->next;
+    aux=fila0;
+    t_main.aging=0;
+    int pri_aux = aux->prio_static-aux->aging;
+    int pri_elem;
+
+    for (i=0; i<userTasks-1; i++){
+        pri_elem=elem->prio_static-elem->aging;
+        if ((pri_elem<=pri_aux) && (elem!=&t_main)){
+            aux->aging=(aux->aging)+1;
+            aux=elem;
+            pri_aux = aux->prio_static-aux->aging;
+        }
+        else if ((pri_elem>pri_aux) && (elem!=&t_main)){
+            elem->aging=(elem->aging)+1;
+        }
+
+        elem=elem->next;
+    }
+    #ifdef DEBUG
+        printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
+    #endif
+    aux->aging=0;
+    return aux;
 
 }
 
@@ -72,12 +126,14 @@ void pingpong_init () {
     t_main.next = NULL;
     t_main.tid= 0;
     t_main.status=0;
+    t_main.prio_static=20;
+    t_main.aging = 0;
     t_main.ntick=0;    //numero de ticks usados pela tarefa
     t_main.tick_total=ticks;   //numero de ticks total do processador
     t_main.ativacoes=1;
     atual=&t_main;    //queue_append ((queue_t **) &fila0, (queue_t*) atual);
     setvbuf (stdout, 0, _IONBF, 0) ;
-    action.sa_handler = task_yield ;
+    action.sa_handler = task_yield_temp ;
     sigemptyset (&action.sa_mask) ;
     action.sa_flags = 0 ;
     if (sigaction (SIGALRM, &action, 0) < 0)
@@ -86,8 +142,8 @@ void pingpong_init () {
       exit (1) ;
     }
    // ajusta valores do temporizador
-    timer.it_value.tv_usec = 2000 ;      // primeiro disparo, em micro-segundos
-    timer.it_interval.tv_usec = 2000 ;   // disparos subsequentes, em micro-segundos
+    timer.it_value.tv_usec = 1000 ;      // primeiro disparo, em micro-segundos
+    timer.it_interval.tv_usec = 1000 ;   // disparos subsequentes, em micro-segundos
     task_create(&dispatcher,dispatcher_body,NULL);
     #ifdef DEBUG
         printf ("pingpong_init iniciado\n") ;
@@ -112,6 +168,8 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
     task->prev=NULL;
     task->next=NULL;
     task->status=0;
+    task->prio_static=0;
+    task->aging=0;
     task->ntick=0;    //numero de ticks usados pela tarefa
     task->tick_total=ticks;   //numero de ticks total do processador
     task->ativacoes=0;
@@ -204,27 +262,6 @@ void task_resume (task_t *task){
     #endif
 
 
-}
-
-void task_yield (){
-
-    #ifdef DEBUG
-        printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
-    #endif
-    task_switch (&dispatcher);
-}
-
-void task_yield_temp (){
-    ticks++;
-    atual->ntick+=1;
-    if(tick>0){
-
-        tick--;
-    }
-    else{
-        tick=20;
-        task_yield();
-    }
 }
 
 unsigned int systime (){
