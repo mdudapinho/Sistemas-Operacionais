@@ -195,7 +195,7 @@ int task_switch (task_t *task) {
     }
     else if (antigo->status==1){    //quando a tarefa chegar ao fim
         antigo->tick_total=ticks-antigo->tick_total;
-        printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->ntick, antigo->tick_total, antigo->ativacoes);
+        printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->tick_total, antigo->ntick, antigo->ativacoes);
 
     }
     #ifdef DEBUG
