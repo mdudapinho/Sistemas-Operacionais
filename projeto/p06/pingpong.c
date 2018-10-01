@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
-
+//#define DEBUG 1
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action ;
 
@@ -32,18 +32,23 @@ void task_yield_temp (){
     ticks++;
     atual->ntick+=1;
     if(tick>0){
-
+      #ifdef DEBUG
+          printf ("task_yield_temp: tarefa %d diminuiu o quantuum\n", atual->tid) ;
+      #endif
         tick--;
     }
     else{
         tick=19;
+        #ifdef DEBUG
+            printf ("task_yield_temp: tarefa %d terminou o quantuum\n", atual->tid) ;
+        #endif
         task_yield();
     }
 }
 
 task_t* scheduler(){
-    /*//FIFO
-    if (fila0==&(t_main) && userTasks==1){
+    //FIFO
+    /*if (fila0==&(t_main) && userTasks==1){
         #ifdef DEBUG
             printf ("scheduler: passou para a task %d\n", fila0->tid) ;
         #endif
