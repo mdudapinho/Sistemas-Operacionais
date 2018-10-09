@@ -33,7 +33,7 @@ void task_yield_temp (){
     atual->ntick+=1;
     if(tick>0){
       #ifdef DEBUG
-          printf ("task_yield_temp1: tarefa %d diminuiu o quantuum\n", atual->tid) ;
+          //printf ("task_yield_temp1: tarefa %d diminuiu o quantuum\n", atual->tid) ;
       #endif
         tick--;
     }
@@ -49,14 +49,13 @@ void task_yield_temp (){
 task_t* scheduler(){
     //PRIORIDADE(ENVELHECIMENTO)!
     int i;
-    printf ("\naqui1\n");
     task_t *elem=fila0->next;
     aux=fila0;
     int pri_aux = aux->prio_static-aux->aging;
     int pri_elem;
-    for (i=0; i<userTasks-1; i++){
+    for (i=0; i<userTasks; i++){
         pri_elem=elem->prio_static-elem->aging;
-        if ((pri_elem<pri_aux) ){
+        if ((pri_elem<=pri_aux) ){
             aux->aging=(aux->aging)+1;
             aux=elem;
             pri_aux = aux->prio_static-aux->aging;
@@ -80,7 +79,7 @@ void dispatcher_body (){
         printf ("dispatcher_body chamado\n") ;
     #endif
     while (userTasks){
-        printf ("\nvai chamar scheduler\n");
+        //printf ("\nvai chamar scheduler\n");
         next = scheduler();
         if (next){
             if (setitimer (ITIMER_REAL, &timer, 0) < 0)
@@ -88,7 +87,8 @@ void dispatcher_body (){
               perror ("Erro em setitimer: ") ;
               exit (1) ;
             }
-            printf ("\ntick definido para 19\n");
+            //tick=19;
+            //printf ("\ntick definido para 19\n");
 
             task_switch(next);
         }
@@ -163,9 +163,11 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
     makecontext (&(task->context), (void*)(*start_func), 1, arg);
     queue_append((queue_t**)&fila0,(queue_t*)task);
     userTasks++;
+
     #ifdef DEBUG
         printf ("task_create: criou tarefa %d\n", task->tid);
     #endif
+    //task_yield();
     return task->tid;
 }
 
@@ -199,8 +201,9 @@ void task_exit (int exitCode) {
     #ifdef DEBUG
         printf ("task_exit: vai retirar a tarefa %d\n", atual->tid) ;
     #endif
-    while(atual->parent){
-        fila_espera=(atual->parent);
+    fila_espera=(atual->parent);
+    while(fila_espera){
+        //fila_espera=(atual->parent);
         task_resume (atual->parent);
     }
 
@@ -249,13 +252,14 @@ void task_suspend (task_t *task, task_t **queue) {
 
 void task_resume (task_t *task){
     aux= (task_t*)queue_remove((queue_t**)&fila_espera,(queue_t*)task);
-    aux->exit_parent=valor_task_exit;
     if (aux){
         queue_append((queue_t**)&fila0,(queue_t*)aux);
         userTasks++;
+        aux->exit_parent=valor_task_exit;
     }
+
     #ifdef DEBUG
-        printf ("task_resume: devolvendo tarefa %d a fila de prontas\n", aux->tid) ;
+        printf ("task_resume: devolvendo tarefa %d a fila de prontas\nusertask: %d\n", aux->tid, userTasks) ;
     #endif
 
 

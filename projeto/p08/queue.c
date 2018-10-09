@@ -18,18 +18,10 @@ void queue_append (queue_t **queue, queue_t *elem) {
 			elem->next = elem;
 	 }
 	else {
-		queue_t *rem ;
-		int jatem=0;
-		for (rem = *queue; rem!=*queue && jatem==0;rem=rem->next){
-				if (elem== rem)
-					jatem=1;
-		}
-		if (rem == elem && !jatem){
 			elem->next=*queue;
-			elem->prev= elem->next->prev;
-			elem->prev->next = elem;
-			elem->next->prev = elem;
-		}
+		elem->prev= elem->next->prev;
+		elem->prev->next = elem;
+		elem->next->prev = elem;
 	}
 	}
 
@@ -48,12 +40,21 @@ else if (*queue == NULL){
 		elem->next = elem;
  }
 else {
+	queue_t *rem ;
+	int jatem=0;
+	for (rem = *queue; rem!=*queue && jatem==0;rem=rem->next){
+			if (elem== rem)
+				jatem=1;
+	}
+	if (rem == elem && !jatem){
 		elem->next=*queue;
-	elem->prev= elem->next->prev;
-	elem->prev->next = elem;
-	elem->next->prev = elem;
+		elem->prev= elem->next->prev;
+		elem->prev->next = elem;
+		elem->next->prev = elem;
+	}
 }
 }
+
 */
 
 
@@ -71,7 +72,7 @@ queue_t *queue_remove (queue_t **queue, queue_t *elem) {
     				*queue=NULL;
     			else{
 						*queue=rem->next;
-						printf("\naqui mesmo\n");
+					//	printf("\naqui mesmo\n");
 					}
 
     		}
