@@ -33,6 +33,7 @@ void task_yield (){
 }
 
 void acorda_adormecidas(){
+  /*Percorre a fila de tarefas adormecidas, diminui o tempo de todas e verifica quem precisa ser acordada*/
     if (tasksAdormecidas){
         task_t* elem=adormecidas;
         int inicio, acorda=0;
@@ -322,6 +323,7 @@ unsigned int systime (){
 
 // a tarefa corrente aguarda o encerramento de outra task
 int task_join (task_t *task) {
+  /*A tarefa atual e colocada suspensa na fila da tarefa task->parent ate que a mesma finalize*/
   #ifdef DEBUG
       printf ("task_join: entrou com a tarefa %d\n", atual->tid) ;
   #endif
@@ -343,6 +345,7 @@ int task_join (task_t *task) {
 
 // suspende a tarefa corrente por t segundos
 void task_sleep (int t){
+    /*passa a tarefaatual para uma fila de tarefas adormecidas e muda o parametro "adormecida" para o tempo em que a tera tera de ficar dormindo*/
     atual->adormecida=1000*t;
     queue_append((queue_t**)&adormecidas,(queue_t*)atual);
     tasksAdormecidas++;
