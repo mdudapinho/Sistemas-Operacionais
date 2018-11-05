@@ -1,16 +1,3 @@
-/*
-QUANDO A FUNCAO SLEEP E CHAMADA, A TAREFA ATUAL ENTRA NA FILA DE TAREFAS
-ADORMECIDAS PELO TEMPO INDICADO NA FUNCAO
-
-A CADA VEZ QUE A FUNCAO task_yield_temp FOR CHAMADA, O CONTADOR DE CADA TASK
-ADORMECIDA VAI SER DECREMENTADO. QUANDO ESTE CONTADOR CHEGAR EM ZERO, A TAREFA
-SERA ACORDADA E SERA TRANSFERIDA PARA A FILA DE TAREFAS PRONTAS. A VERIFICACAO
-DAS TASKS PARA SABER QUAL SERA ACORDADA SERA FEITA PELA FUNCAO acorda_adormecidas
-
-NO dispatcher_body A TASK ATUAL SO SERA TROCADA CASO TENHA ALGUMA TAREFA NA FILA
-DE PRONTAS, CASO CONTRARIO, SE AINDA HOUVER TAREFAS ADORMECIDAS, MAS NENHUMA NA
-FILA DE PRONTAS, A TASK ATUAL CONTINUARA NO dispatcher 
-*/
 
 #include "pingpong.h"
 #include "queue.h"
@@ -21,29 +8,26 @@ FILA DE PRONTAS, A TASK ATUAL CONTINUARA NO dispatcher
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
-//#define DEBUG 1
-// estrutura que define um tratador de sinal (deve ser global ou static)
+//#define DEBUG
 struct sigaction action ;
-
-// estrutura de inicialização to timer
 struct itimerval timer;
 
 task_t t_main, dispatcher, *fila0= NULL,*antigo=NULL,*atual, *next, *fila_espera=NULL, *aux, *adormecidas=NULL;
 int cont_id=1;
 int userTasks=0;
+int tasksSemaforo =0;
 int tick=19;
 int ticks=0; //contador geral de ticks
 int valor_task_exit=0;
 int tasksAdormecidas=0;
-void task_yield (){
 
+void task_yield (){
     #ifdef DEBUG
-        printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
+        //printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
     #endif
     if (atual->tid !=dispatcher.tid){
         task_switch (&dispatcher);
     }
-
 }
 
 void acorda_adormecidas(){
@@ -98,7 +82,7 @@ void task_yield_temp (){
     else{
         tick=19;
         #ifdef DEBUG
-            printf ("task_yield_temp: tarefa %d terminou o quantuum\n", atual->tid) ;
+            //printf ("task_yield_temp: tarefa %d terminou o quantuum\n", atual->tid) ;
         #endif
         task_yield();
     }
@@ -128,19 +112,18 @@ task_t* scheduler(){
         elem=elem->next;
     }
     #ifdef DEBUG
-        printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
+        //printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
     #endif
     aux->aging=0;
     return aux;
-
 }
 
 void dispatcher_body (){
     #ifdef DEBUG
         printf ("dispatcher_body chamado\n") ;
     #endif
-    while (userTasks || tasksAdormecidas){
-        //printf ("userTasks %d || tasksAdormecidas %d\n", userTasks, tasksAdormecidas) ;
+    while (userTasks || tasksAdormecidas|| tasksSemaforo){
+        //printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
         next = scheduler();
         if (next){
             if (setitimer (ITIMER_REAL, &timer, 0) < 0)
@@ -148,11 +131,10 @@ void dispatcher_body (){
               perror ("Erro em setitimer: ") ;
               exit (1) ;
             }
+            //printf("dispatcher_body: vai trocar\n");
             task_switch(next);
         }
-
     }
-
     #ifdef DEBUG
         printf ("saiu do dispatcher_body\n") ;
     #endif
@@ -336,13 +318,9 @@ unsigned int systime (){
 }
 
 // a tarefa corrente aguarda o encerramento de outra task
+/*A tarefa atual e colocada suspensa na fila da tarefa task->parent ate que a mesma finalize*/
 int task_join (task_t *task) {
-  /*A tarefa atual e colocada suspensa na fila da tarefa task->parent ate que a mesma finalize*/
-  #ifdef DEBUG
-      printf ("task_join: entrou com a tarefa %d\n", atual->tid) ;
-  #endif
     if(task!=NULL && task->status!=1 ) {
-
         task_suspend (NULL, &(task->parent));
         #ifdef DEBUG
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
@@ -370,4 +348,89 @@ void task_sleep (int t){
         printf ("task_sleep: adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
     #endif
     task_switch (&dispatcher);
+}
+
+// semáforos
+
+// cria um semáforo com valor inicial "value"
+int sem_create (semaphore_t *s, int value) {
+    if (s==NULL){
+      	#ifdef DEBUG
+            printf ("sem_down: semaforo inexistente\n") ;
+        #endif
+    	return -1;
+    }
+    s->contador = value;
+    s->fila = NULL;
+    #ifdef DEBUG
+        printf ("sem_down: semaforo criado com valor %d\n", value) ;
+    #endif
+    return 0;
+}
+
+// requisita o semáforo
+int sem_down (semaphore_t *s) {
+    //printf("sem_down inicio\n");
+    if (s==NULL){
+	     #ifdef DEBUG
+          printf ("sem_down: semaforo inexistente\n") ;
+       #endif
+       //printf("sem_down fim 1\n");
+	     return -1;
+    }
+    s->contador--;
+    if (s->contador<0){
+	      atual->status=4;
+        queue_append((queue_t**)&(s->fila),(queue_t*)atual);
+	      tasksSemaforo++;
+        #ifdef DEBUG
+            printf ("sem_down: colocando a tarefa %d no semaforo\n", atual->tid) ;
+        #endif
+        //printf("sem_down inicio fim 2\n");
+	      task_switch (&dispatcher);
+    }
+    return 0;
+}
+
+// libera o semáforo
+int sem_up (semaphore_t *s) {
+    //printf("sem_up inicio\n");
+    if (s==NULL){
+	      #ifdef DEBUG
+            printf ("sem_down: semaforo inexistente\n") ;
+        #endif
+	      return -1;
+    }
+    s->contador++;
+    if (s->contador<=0){
+      	aux= (task_t*)queue_remove((queue_t**)&(s->fila),(queue_t*)(s->fila));
+      	tasksSemaforo--;
+      	aux->status =0;
+      	queue_append((queue_t**)&fila0,(queue_t*)aux);
+      	userTasks++;
+        #ifdef DEBUG
+            printf ("sem_up: semaforo ativando tarefa %d\n", aux->tid) ;
+        #endif
+    }
+    return 0;
+}
+
+// destroi o semáforo, liberando as tarefas bloqueadas
+int sem_destroy (semaphore_t *s) {
+    if (s==NULL){
+	      #ifdef DEBUG
+            printf ("sem_down: semaforo inexistente\n") ;
+        #endif
+	      return -1;
+    }
+    while(s->fila){
+      	aux= (task_t*)queue_remove((queue_t**)&(s->fila),(queue_t*)(s->fila));
+      	tasksSemaforo--;
+        if (aux){
+            queue_append((queue_t**)&fila0,(queue_t*)aux);
+            userTasks++;
+        }
+    }
+    s=NULL;
+    return 0;
 }

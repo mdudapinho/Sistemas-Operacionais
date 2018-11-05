@@ -24,14 +24,13 @@ void taskBody(void *id)
       soma += 1 ;
       sem_up (&s) ;
    }
-
    task_exit (0) ;
 }
 
 int main (int argc, char *argv[])
 {
    int i ;
-   
+
    printf ("Main INICIO\n") ;
 
    pingpong_init () ;

@@ -1,12 +1,12 @@
-"""CADA TASK TEM UMA FILA QUE ESTÃO SUSPENSAS ATÉ QUE ELA ACABE
+/*CADA TASK TEM UMA FILA QUE ESTÃO SUSPENSAS ATÉ QUE ELA ACABE
 QUANDO CHAMA A FUNCAO JOIN, A TAREFA ATUAL PASSA PARA A FILA DE
 SUSPENSAS DA TAREFA INDICADA E O PROCESSADOR VOLTA PARA O DISPATCHER
 
 NA HORA DE DAR EXIT EM UMA TASK, AS TAREFAS QUE ESTAO NA FILA DE
 SUSPENSAS REFERENTE A AQUELA TASK SAO ACORDADAS, OU SEJA, PASSAM PARA A FILA DE TAREFAS PRONTAS
+*/
 
 
-"""
 #include "pingpong.h"
 #include "queue.h"
 #include <stdlib.h>
@@ -254,11 +254,8 @@ void task_suspend (task_t *task, task_t **queue) {
         #ifdef DEBUG
             printf ("task_suspend: suspendendo tarefa %d \n", aux->tid) ;
         #endif
-
-
     }
 }
-
 void task_resume (task_t *task){
     aux= (task_t*)queue_remove((queue_t**)&fila_espera,(queue_t*)task);
     if (aux){
@@ -270,8 +267,6 @@ void task_resume (task_t *task){
     #ifdef DEBUG
         printf ("task_resume: devolvendo tarefa %d a fila de prontas\nusertask: %d\n", aux->tid, userTasks) ;
     #endif
-
-
 }
 
 unsigned int systime (){
@@ -294,7 +289,7 @@ int task_join (task_t *task) {
         #ifdef DEBUG
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
         #endif
-        return valor_task_exit;
+        return atual->exit_parent;  //valor_task_exit;
     }
     else{
         #ifdef DEBUG
