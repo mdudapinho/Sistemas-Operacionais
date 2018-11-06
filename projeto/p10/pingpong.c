@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
-//#define DEBUG 1
+#define DEBUG 1
 struct sigaction action ;
 struct itimerval timer;
 
@@ -69,8 +69,8 @@ void acorda_adormecidas(){
 void task_yield_temp (){
     ticks++;
     atual->ntick+=1;
-    if (!(ticks%1000))
-      printf ("\t %d ms\n", ticks);
+    //if (!(ticks%1000))
+    //  printf ("\t %d ms\n", ticks);
 
     acorda_adormecidas();
     if(tick>0){
@@ -112,7 +112,7 @@ task_t* scheduler(){
         elem=elem->next;
     }
     #ifdef DEBUG
-        //printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
+        printf ("scheduler retornou a task %d com a prioridade %d\n", aux->tid, pri_aux) ;
     #endif
     aux->aging=0;
     return aux;
@@ -122,17 +122,17 @@ void dispatcher_body (){
     #ifdef DEBUG
         printf ("dispatcher_body chamado\n") ;
     #endif
-    while (userTasks || tasksAdormecidas|| tasksSemaforo){
+    while (userTasks || tasksAdormecidas|| tasksSemaforo ){
         //printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
         next = scheduler();
         if (next){
-	          //printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
+	          printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
             if (setitimer (ITIMER_REAL, &timer, 0) < 0)
             {
               perror ("Erro em setitimer: ") ;
               exit (1) ;
             }
-            //printf("dispatcher_body: vai trocar\n");
+            printf("dispatcher_body: vai trocar\n");
             task_switch(next);
 	    //printf ("voltou\n");
         }
@@ -228,11 +228,6 @@ int task_switch (task_t *task) {
             printf ("task_switch: colocou a tarefa %d na fila\n", antigo->tid) ;
         #endif
     }
-    else if (antigo->status==1){    //quando a tarefa chegar ao fim
-        antigo->tick_total=ticks-antigo->tick_total;
-        printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->tick_total, antigo->ntick, antigo->ativacoes);
-
-    }
     #ifdef DEBUG
         printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
     #endif
@@ -241,28 +236,24 @@ int task_switch (task_t *task) {
 }
 
 void task_exit (int exitCode) {
-    printf ("entrou exit\n");
     atual->status=1;
     valor_task_exit=exitCode;
     #ifdef DEBUG
         printf ("task_exit: vai retirar a tarefa %d\n", atual->tid) ;
     #endif
+    printf ("task_exit:\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
     fila_espera=(atual->parent);
     while(fila_espera){
         //fila_espera=(atual->parent);
         task_resume (atual->parent);
     }
+    userTasks--;
+    atual->tick_total=ticks-atual->tick_total;
+    printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", atual->tid, atual->tick_total, atual->ntick, atual->ativacoes);
 
-    if(atual->tid != dispatcher.tid){
+    if (atual->tid != dispatcher.tid){    //quando o dispatcher chegar ao fim
         task_switch (&dispatcher);
     }
-    else {    //quando o dispatcher chegar ao fim
-        userTasks--;
-        atual->tick_total=ticks-atual->tick_total;
-        printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", atual->tid, atual->tick_total, atual->ntick, atual->ativacoes);
-        task_switch (&main);
-    }
-
 }
 
 int task_id () {
@@ -352,12 +343,13 @@ void task_sleep (int t){
 // semáforos
 // cria um semáforo com valor inicial "value"
 int sem_create (semaphore_t *s, int value) {
-    if (s==NULL){
+    if (s->status==1){
       	#ifdef DEBUG
-            printf ("sem_down: semaforo inexistente\n") ;
+            printf ("sem_down: semaforo ja existente\n") ;
         #endif
     	return -1;
     }
+    s->status=1;
     s->valor = value;
     s->contador=0;
     s->fila = NULL;
@@ -369,7 +361,7 @@ int sem_create (semaphore_t *s, int value) {
 // requisita o semáforo
 int sem_down (semaphore_t *s) {
     //printf("sem_down inicio\n");
-    if (s==NULL){
+    if (s->status==0){
 	     #ifdef DEBUG
           printf ("sem_down: semaforo inexistente\n") ;
        #endif
@@ -379,7 +371,7 @@ int sem_down (semaphore_t *s) {
     if (s->valor<0){
 	      atual->status=4;
         queue_append((queue_t**)&(s->fila),(queue_t*)atual);
-        s->contador++;
+        s->contador+=1;
 	      tasksSemaforo++;
         #ifdef DEBUG
             printf ("sem_down: colocando a tarefa %d no semaforo\n", atual->tid) ;
@@ -394,7 +386,7 @@ int sem_down (semaphore_t *s) {
 // libera o semáforo
 int sem_up (semaphore_t *s) {
     //printf("sem_up inicio\n");
-    if (s==NULL){
+    if (s->status==0){
 	      #ifdef DEBUG
             printf ("sem_down: semaforo inexistente\n") ;
         #endif
@@ -407,6 +399,7 @@ int sem_up (semaphore_t *s) {
       	tasksSemaforo--;
       	aux->status =0;
       	queue_append((queue_t**)&fila0,(queue_t*)aux);
+        //aqui
       	userTasks++;
 	        #ifdef DEBUG
             printf ("sem_up: semaforo ativando tarefa %d\n", aux->tid) ;
@@ -417,25 +410,26 @@ int sem_up (semaphore_t *s) {
 }
 // destroi o semáforo, liberando as tarefas bloqueadas
 int sem_destroy (semaphore_t *s) {
-    if (s==NULL){
+    if (!(s->status==1)){
 	     #ifdef DEBUG
-            printf ("sem_down: semaforo inexistente\n") ;
+            printf ("sem_down: semaforo inexistente ou ja destruido\n") ;
         #endif
 	      return -1;
     }
+    s->status=0;
     task_t *elem = s->fila;
     while(s->contador>0){
-	     #ifdef DEBUG
-            printf ("sem_down: semaforo removendo tarefa %d do semaforo e colocando na fila \n", (s->fila)->tid) ;
-            printf ("sem_destroy\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
-
-        #endif
       	aux= (task_t*)queue_remove((queue_t**)&elem,(queue_t*)elem);
-        s->contador--;
+        s->contador-=1;
       	tasksSemaforo--;
         queue_append((queue_t**)&fila0,(queue_t*)aux);
         userTasks++;
+        #ifdef DEBUG
+             printf ("sem_down: semaforo removendo tarefa %d do semaforo e colocando na fila \n", (s->fila)->tid) ;
+             printf ("sem_destroy\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
+         #endif
     }
-    s=NULL;
+    s->fila=NULL;
+    s->contador-=1;
     return 0;
 }

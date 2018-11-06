@@ -13,11 +13,8 @@ void TaskA (void * arg)
       sem_down (&s1) ;
       printf ("%s zig (%d)\n", (char *) arg, i) ;
       task_sleep (1) ;
-	printf("1");
       sem_up (&s2) ;
-	printf("2");
    }
-   printf ("chegou aqui");
    task_exit (0) ;
 }
 
@@ -49,13 +46,18 @@ int main (int argc, char *argv[])
    task_create (&b2, TaskB, "                             B2") ;
 
    task_join (&a1) ;
-   printf ("\n-----------destroi semaforos--------------------\n");
-   sem_destroy (&s1) ;
-   sem_destroy (&s2) ;
-
    task_join (&a2) ;
    task_join (&b1) ;
    task_join (&b2) ;
+   sem_destroy (&s1) ;
+   sem_destroy (&s2) ;
+   printf("\n\n-------------------aqui-----------------------------------------\n\n");
+
+
+   //task_join (&a2) ;
+   //task_join (&b1) ;
+   //task_join (&b2) ;
+   printf("\n\n-------------------todo mndo ja tem que ter acabado-----------------------------------------\n\n");
 
    printf ("Main FIM\n") ;
    task_exit (0) ;

@@ -24,7 +24,7 @@ typedef struct task_t
     struct task_t *parent;
     int exit_parent;
     int adormecida; //tempo faltante para sair da fila de adormecidas
-    
+
 } task_t ;
 // para usar com a biblioteca de filas (cast)
 // ID da tarefa
@@ -34,6 +34,7 @@ typedef struct task_t
 // estrutura que define um semáforo
 typedef struct
 {
+    int status; //==1 pode usar; 0 chegou ao fim
     int valor;
     int contador;
     task_t *fila;
