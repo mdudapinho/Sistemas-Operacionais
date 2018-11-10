@@ -346,7 +346,8 @@ void task_sleep (int t){
 }
 
 // semáforos
-// cria um semáforo com valor inicial "value"
+/*cria um semáforo com valor inicial "value", cada semaforo tem uma variavel status p saber se o mesmo pode ser usado e
+um contador para saber quantas tarefas tao na fila desse semaforo*/
 int sem_create (semaphore_t *s, int value) {
     if (s->status==1){
       	#ifdef DEBUG
@@ -364,8 +365,10 @@ int sem_create (semaphore_t *s, int value) {
     return 0;
 }
 // requisita o semáforo
+/*olhar no livro, ta mais bem explicado:
+Se tiver uma tarefa esperando na fila, a tarefa atual aguarda na fila do semaforo, caso nao tenha, ela cpode continuar
+a sua execucao*/
 int sem_down (semaphore_t *s) {
-    //printf("sem_down inicio\n");
     if (s->status!=1){
        #ifdef DEBUG
           printf ("sem_down: semaforo inexistente\n") ;
@@ -395,6 +398,7 @@ int sem_down (semaphore_t *s) {
     return 0;
 }
 // libera o semáforo
+/*Acorda a proxima tarefa que estiver esperando na fila do semaforo-se houver alguma, claro*/
 int sem_up (semaphore_t *s) {
     //printf("sem_up inicio\n");
     if (s->status!=1){
@@ -418,7 +422,7 @@ int sem_up (semaphore_t *s) {
     }
     return 0;
 }
-// destroi o semáforo, liberando as tarefas bloqueadas
+// destroi o semáforo e as tarefas que estavam na fila do semaforo passam para a fila de prontas
 int sem_destroy (semaphore_t *s) {
     if (s->status!=1){
   	  #ifdef DEBUG
@@ -473,6 +477,8 @@ int barrier_create (barrier_t *b, int n) {
 }
 
 // Chega a uma barreira
+/*Se a barreira tiver cheia (com o limite alcancado), ela deve liberar todas as tarefas, ou seja,
+retornar elas para a fila de tarefas prontas*/
 int barrier_join (barrier_t *b) {
     if (b->status!=1){
         #ifdef DEBUG
@@ -480,7 +486,7 @@ int barrier_join (barrier_t *b) {
         #endif
         return -1;
     }
-    //printf ("contador do b: %d\t limite %d\n", b->contador+1, b->lim);
+    /*Se tiver faltando so uma tarefa, ela nao precisa entrar na fila da barreira porque ela vai ser liberada logo depois*/
     if(b->contador<b->lim-1){
         atual->status=5;
         queue_append((queue_t**)&(b->fila),(queue_t*)atual);
@@ -493,11 +499,11 @@ int barrier_join (barrier_t *b) {
         task_switch (&dispatcher);
         return 0;
     }
-    printf ("\n\n--------------------tirar os brothers daqui--------------------\n\n");
     #ifdef DEBUG
         printf ("barrier_join: barreira a tarefa %d acordou as demais e continua \n", atual->tid) ;
     #endif
     task_t *elem = b->fila;
+    /*Vai liberando quem estiver na barreira ate nao restar nenhuma task*/
     while(b->contador){
         #ifdef DEBUG
             printf ("barrier_join: barreira removendo tarefa %d e colocando na fila de prontas \n", (b->fila)->tid) ;
@@ -513,6 +519,7 @@ int barrier_join (barrier_t *b) {
 }
 
 // Destrói uma barreira
+/*Se tiver alguma tarefa na barreira vai liberando, ou seja, passa para a fila de prontas*/
 int barrier_destroy (barrier_t *b) {
   if (b->status!=1){
       #ifdef DEBUG
