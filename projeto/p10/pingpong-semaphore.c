@@ -46,18 +46,11 @@ int main (int argc, char *argv[])
    task_create (&b2, TaskB, "                             B2") ;
 
    task_join (&a1) ;
-   task_join (&a2) ;
-   task_join (&b1) ;
-   task_join (&b2) ;
    sem_destroy (&s1) ;
    sem_destroy (&s2) ;
-   printf("\n\n-------------------aqui-----------------------------------------\n\n");
-
-
-   //task_join (&a2) ;
-   //task_join (&b1) ;
-   //task_join (&b2) ;
-   printf("\n\n-------------------todo mndo ja tem que ter acabado-----------------------------------------\n\n");
+   task_join (&a2) ;
+   task_join (&b1) ;
+   task_join (&b2) ; 
 
    printf ("Main FIM\n") ;
    task_exit (0) ;
