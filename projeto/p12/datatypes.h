@@ -26,6 +26,7 @@ typedef struct task_t
     int adormecida; //tempo faltante para sair da fila de adormecidas
     int cod_erro_sem;
     int cod_erro_bar;
+    int cod_erro_fila_mensagem;
 
 } task_t ;
 // para usar com a biblioteca de filas (cast)
@@ -66,7 +67,8 @@ typedef struct
   int contador;
   int max;
   int size;
-  task_t *fila_suspensas;
+  task_t *fila_suspensas_rec;
+  task_t *fila_suspensas_sen;
   void *mensagens;
 
   // preencher quando necessário

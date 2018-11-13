@@ -23,7 +23,7 @@ void queue_append (queue_t **queue, queue_t *elem) {
 		elem->prev->next = elem;
 		elem->next->prev = elem;
 	}
-	}
+}
 
 queue_t *queue_remove (queue_t **queue, queue_t *elem) {
     if (queue == NULL)
