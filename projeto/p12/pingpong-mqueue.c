@@ -23,6 +23,7 @@ void prodBody (void * saida)
       valor = random() % 1000 ;
 
       // envia o valor inteiro na fila de saida
+      //printf("valor %d sizeof(valor) na main: %ld endereco %d\n", valor, sizeof(valor), &valor);
       if (mqueue_send (&queueValores, &valor) < 0)
       {
          printf ("T%d terminou\n", task_id()) ;

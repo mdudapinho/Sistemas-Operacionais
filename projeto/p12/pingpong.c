@@ -9,7 +9,7 @@
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
-//#define DEBUG 1
+#define DEBUG 1
 struct sigaction action ;
 struct itimerval timer;
 
@@ -28,8 +28,8 @@ int tasksBarreira=0;
 int tasksMensagens=0;
 
 typedef struct mensagem_t{
-    struct task_t *prev;
-    struct task_t *next;
+    struct mensagem_t *prev;
+    struct mensagem_t *next;
     void *msg;
 } mensagem_t ;
 
@@ -329,10 +329,10 @@ unsigned int systime (){
 /*A tarefa atual e colocada suspensa na fila da tarefa task->parent ate que a mesma finalize*/
 int task_join (task_t *task) {
     if(task!=NULL && task->status!=1 ) {
-        task_suspend (NULL, &(task->parent));
         #ifdef DEBUG
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
         #endif
+        task_suspend (NULL, &(task->parent));
         return valor_task_exit;
     }
     else{
@@ -567,12 +567,16 @@ int mqueue_create (mqueue_t *queue, int max, int size) {
       #endif
     return -1;
   }
+  queue->status=1;
   queue->max=max;
   queue->size=size;
   queue->contador=0;
   queue->fila_suspensas_rec=NULL;
   queue->fila_suspensas_sen=NULL;
   queue->mensagens=NULL;
+  #ifdef DEBUG
+      printf ("mqueue_create: fila de mensagens criada com tamanho de %d e maximo de %d mensagens \n", queue->size, queue->max) ;
+  #endif
   return 0;
 }
 
@@ -593,19 +597,31 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         queue_append((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)atual);
         task_switch(&dispatcher);
     }
-    if (sizeof(msg)!=queue->size){
+    //printf("msg: %p\n", msg);
+    int *a =  msg; //endereco da mensagem
+
+    //printf("a: %d\t %d\n", a, *a);
+    //printf ("sizeof(msg) %ld\t sizeof(queue->size)%ld \n", sizeof(*a), sizeof(queue->size));
+    if (sizeof(*a)!=sizeof(queue->size)){
         #ifdef DEBUG
-            printf ("mqueue_send: mensagem fora do padrao \n") ;
+            printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(msg), sizeof(queue->size)) ;
         #endif
         return -1;
     }
     #ifdef DEBUG
         printf ("mqueue_send: mensagem adicionada a fila pela task %d \n", atual->tid) ;
     #endif
+    printf("1\n");
     queue->contador+=1;
-    mensagem_t *men=NULL;
+
+    mensagem_t *men;
+
+    //mensagem_t *men;
+    printf("2\n");
     men->prev=NULL;
+    printf("1\n");
     men->next=NULL;
+    printf("1\n");
     /*
     const void *src = men->msg;
     bcopy (src, (queue->mensagens), queue->size);
@@ -614,7 +630,9 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     men->msg = msg;
     queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men->msg));
     queue->contador+=1;
+    printf("1\n");
     if (queue->fila_suspensas_rec){
+        printf("1\n");
         aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)(queue->fila_suspensas_rec));
         tasksMensagens-=1;
         queue_append((queue_t**)&fila0,(queue_t*)aux);
