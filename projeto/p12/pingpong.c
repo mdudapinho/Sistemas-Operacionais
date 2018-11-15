@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
+//
 #define DEBUG 1
 struct sigaction action ;
 struct itimerval timer;
@@ -32,7 +33,7 @@ typedef struct mensagem_t{
     struct mensagem_t *next;
     void *msg;
 } mensagem_t ;
-
+mensagem_t *auxiliar;
 void task_yield (){
     #ifdef DEBUG
         //printf ("task_yield: vai sair da tarefa %d e ir para o dispatcher\n", atual->tid) ;
@@ -132,13 +133,14 @@ void dispatcher_body (){
         next = scheduler();
 
         if (next){
-	     //printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
+	     //printf ("dispatcher_body\t userTasks %d||tasksAdormecidas %d||tasksSemaforo %d \n",userTasks,tasksAdormecidas,tasksSemaforo);
             if (setitimer (ITIMER_REAL, &timer, 0) < 0)
             {
               perror ("Erro em setitimer: ") ;
               exit (1) ;
             }
             task_switch(next);
+	    //printf("voltou no dispatcher dps de trocar com a proxima tarefa\n");
         }
     }
     #ifdef DEBUG
@@ -243,10 +245,11 @@ int task_switch (task_t *task) {
         printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->tick_total, antigo->ntick, antigo->ativacoes);
 
     }
-    #ifdef DEBUG
-        printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
-    #endif
+    
     atual->ativacoes=atual->ativacoes+1;
+    #ifdef DEBUG
+        printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
+    #endif
     return swapcontext (&(antigo->context), &(atual->context));
 }
 
@@ -333,6 +336,7 @@ int task_join (task_t *task) {
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
         #endif
         task_suspend (NULL, &(task->parent));
+	printf("saiu do taskjoin\tvalor_task_exit: %d\n", valor_task_exit);
         return valor_task_exit;
     }
     else{
@@ -353,9 +357,13 @@ void task_sleep (int t){
     //printf ("task_sleep: adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
 
     #ifdef DEBUG
-        printf ("task_sleep: adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
+        printf ("task_sleep: (antes)adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
     #endif
     task_switch (&dispatcher);
+	//printf("eita\n\n");
+    #ifdef DEBUG
+        printf ("\n\ntask_sleep: (depois)a tarefa %d acordou \n\n", atual->tid) ;
+    #endif
 }
 
 // semáforos
@@ -582,6 +590,9 @@ int mqueue_create (mqueue_t *queue, int max, int size) {
 
 // envia uma mensagem para a fila
 int mqueue_send (mqueue_t *queue, void *msg) {
+    #ifdef DEBUG
+        printf ("mqueue_send: aqui\n") ;
+    #endif
     if(queue->status!=1){
         #ifdef DEBUG
             printf ("mqueue_send: fila de mensagens nao existe\n") ;
@@ -596,41 +607,30 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         atual->status=6;
         queue_append((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)atual);
         task_switch(&dispatcher);
+	#ifdef DEBUG
+            printf ("mqueue_send: task %d voltou a fila de prontas com erro -1\n", atual->tid) ;
+        #endif
+	return -1;
     }
-    //printf("msg: %p\n", msg);
     int *a =  msg; //endereco da mensagem
 
-    //printf("a: %d\t %d\n", a, *a);
+    //printf("a: %ld\t %ld\n", a, *a);
     //printf ("sizeof(msg) %ld\t sizeof(queue->size)%ld \n", sizeof(*a), sizeof(queue->size));
     if (sizeof(*a)!=sizeof(queue->size)){
         #ifdef DEBUG
-            printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(msg), sizeof(queue->size)) ;
+            printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(*a), sizeof(queue->size)) ;
         #endif
         return -1;
     }
     #ifdef DEBUG
-        printf ("mqueue_send: mensagem adicionada a fila pela task %d \n", atual->tid) ;
+        printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d \n", atual->tid, queue->contador) ;
     #endif
-    printf("1\n");
+    mensagem_t men;
+    men.msg = msg;
+    men.prev=NULL;
+    men.next=NULL;
+    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(&men));
     queue->contador+=1;
-
-    mensagem_t *men;
-
-    //mensagem_t *men;
-    printf("2\n");
-    men->prev=NULL;
-    printf("1\n");
-    men->next=NULL;
-    printf("1\n");
-    /*
-    const void *src = men->msg;
-    bcopy (src, (queue->mensagens), queue->size);
-    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men->msg));
-    */
-    men->msg = msg;
-    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men->msg));
-    queue->contador+=1;
-    printf("1\n");
     if (queue->fila_suspensas_rec){
         printf("1\n");
         aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)(queue->fila_suspensas_rec));
@@ -638,11 +638,17 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         queue_append((queue_t**)&fila0,(queue_t*)aux);
         userTasks+=1;
     }
+    #ifdef DEBUG
+        printf ("mqueue_send: saindo com a tarefa %d e retornando com 0\n", atual->tid) ;
+    #endif
     return 0;
 }
 
 // recebe uma mensagem da fila
 int mqueue_recv (mqueue_t *queue, void *msg) {
+    #ifdef DEBUG
+        printf ("mqueue_recv: aqui\n") ;
+    #endif
     if(queue->status!=1){
         #ifdef DEBUG
             printf ("mqueue_recv: fila de mensagens nao existe\n") ;
@@ -657,9 +663,13 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
         atual->status=6;
         queue_append((queue_t**)&(queue->fila_suspensas_sen),(queue_t*)atual);
         task_switch(&dispatcher);
+	#ifdef DEBUG
+            printf ("mqueue_recv: task %d voltou a fila de prontas com erro -1\n", atual->tid) ;
+        #endif
+	return -1;
     }
     #ifdef DEBUG
-        printf ("mqueue_recv: mensagem recebida da fila de mensagens\n") ;
+        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t queue->contador: %d\n", queue->contador) ;
     #endif
     mensagem_t *a = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
     queue->contador-=1;
@@ -680,6 +690,9 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
 
 // destroi a fila, liberando as tarefas bloqueadas
 int mqueue_destroy (mqueue_t *queue) {
+    #ifdef DEBUG
+        printf ("mqueue_destroy: aqui\n") ;
+    #endif
     if(queue->status!=1){
         #ifdef DEBUG
             printf ("mqueue_destroy: fila de mensagens nao existe\n") ;

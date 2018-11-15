@@ -21,9 +21,9 @@ void prodBody (void * saida)
    {
       // sorteia um valor inteiro aleatorio
       valor = random() % 1000 ;
-
+	printf("main1\n");
       // envia o valor inteiro na fila de saida
-      //printf("valor %d sizeof(valor) na main: %ld endereco %d\n", valor, sizeof(valor), &valor);
+      printf("valor %d sizeof(valor) na main: %ld endereco %ld\n", valor, sizeof(valor), &valor);
       if (mqueue_send (&queueValores, &valor) < 0)
       {
          printf ("T%d terminou\n", task_id()) ;
@@ -31,9 +31,10 @@ void prodBody (void * saida)
       }
 
       printf ("T%d enviou %d\n", task_id(), valor) ;
-
-      // dorme um intervalo aleatorio
+	// dorme um intervalo aleatorio
+	printf("vai por p dormir na main\n");
       task_sleep (random() % 3) ;
+      printf("voltou na main dps do task sleep\n");
    }
 }
 
