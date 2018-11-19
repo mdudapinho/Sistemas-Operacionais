@@ -62,6 +62,12 @@ typedef struct
   task_t *fila;
 } barrier_t ;
 
+typedef struct{
+    struct mensagem_t *prev;
+    struct mensagem_t *next;
+    void *msg;
+} mensagem_t ;
+
 // estrutura que define uma fila de mensagens
 typedef struct
 {
@@ -69,13 +75,9 @@ typedef struct
   int contador;
   int max;
   int size;
-  //task_t fila_suspensas_rec;
-  //task_t fila_suspensas_sen;
   semaphore_t sem_rec;
   semaphore_t sem_sen;
-  void *mensagens;
-
-  // preencher quando necessário
+  mensagem_t *mensagens;
 } mqueue_t ;
 
 #endif

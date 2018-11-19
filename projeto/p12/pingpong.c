@@ -28,13 +28,8 @@ int tasksAdormecidas=0;
 int tasksBarreira=0;
 int tasksMensagens=0;
 
-typedef struct mensagem_t{
-    struct mensagem_t *prev;
-    struct mensagem_t *next;
-    void *msg;
-} mensagem_t ;
-
-mensagem_t *auxiliar;
+//mensagem_t *men;
+mensagem_t *m_fila;
 
 void task_yield (){
     #ifdef DEBUG
@@ -250,7 +245,7 @@ int task_switch (task_t *task) {
 
     atual->ativacoes=atual->ativacoes+1;
     #ifdef DEBUG
-        printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
+        //printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
     #endif
     return swapcontext (&(antigo->context), &(atual->context));
 }
@@ -588,9 +583,10 @@ int mqueue_create (mqueue_t *queue, int max, int size) {
     queue->size=size;
     queue->contador=0;
     sem_create (&(queue->sem_rec), 0);
-    sem_create (&(queue->sem_sen), max);
+    sem_create (&(queue->sem_sen), 1);
     queue->mensagens=NULL;
     #ifdef DEBUG
+	      printf ("endereco da fila de mensagens : %ld\n", &(queue->mensagens));
         printf ("mqueue_create: fila de mensagens criada com tamanho de %d e maximo de %d mensagens \n", queue->size, queue->max) ;
     #endif
     return 0;
@@ -620,28 +616,34 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     #ifdef DEBUG
         printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d \n", atual->tid, queue->contador) ;
     #endif
-    mensagem_t men;
-    men.msg = msg;
-    men.prev=NULL;
-    men.next=NULL;
-    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(&men));
-    if (men.prev==NULL){
-      printf("essa porra e null\n" );
+    mensagem_t *men = (mensagem_t*)malloc(sizeof(mensagem_t));
+    men->msg = msg;
+    men->prev=NULL;
+    men->next=NULL;
+    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men));
+
+    //printf("a: %ld \tqueue->mensagens \n", queue->mensagens->msg);
+    //  printf("tamanho :%d do endereco %p\n", queue_size ((queue_t *)queue->mensagens), queue->mensagens);
+	  if (men->prev==NULL){
+        printf("essa porra e null\n" );
     }
-    printf("men.prev %d\n", men.prev);
+
+    //  mensagem_t *hey = men->prev;
+  //  int *b = hey->msg;
+  //  printf("men.prev %d\n", *b);
     queue->contador+=1;
     #ifdef DEBUG
-        printf ("mqueue_send: saindo com a tarefa %d e retornando com 0\n", atual->tid ) ;
+        printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
     #endif
     sem_up (&queue->sem_rec);
-
     sem_up(&queue->sem_sen);
     return 0;
 }
 // recebe uma mensagem da fila
+int retornado;
 int mqueue_recv (mqueue_t *queue, void *msg) {
     #ifdef DEBUG
-        //printf ("mqueue_recv: aqui\n") ;
+        printf ("mqueue_recv: aqui\n") ;
     #endif
     if(queue->status!=1){
         #ifdef DEBUG
@@ -651,16 +653,31 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
     }
     sem_down(&queue->sem_rec);
     #ifdef DEBUG
-        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t queue->contador: %d\n", queue->contador) ;
+        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d e valor %d\n", queue->contador, queue->sem_rec.valor) ;
+	      printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
     #endif
-    mensagem_t *a = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
+
+    //int *fila = (queue->mensagens->msg);
+    //int ret = *fila;
+    //msg = ret;
+    ////printf("\t\tessa porra que eu quero  %d\n",ret);
+    //printf("\t\tessa porra que eu vou retornar %d\n",msg);
+
+      //retornado = &(queue->mensagens->msg);
+    //  msg = retornado;
+
+    m_fila = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
     queue->contador-=1;
+    //printf("b %ld\n", *b);
     /*
     const void *src = (queue->mensagens);
 
     bcopy (src, a->msg, queue->size);
     */
-    msg = a->msg;
+    printf("serio\n" );
+    msg = m_fila->msg;
+    printf("serio\n" );
+    //printf("\t\tessa porra que eu vou retornar   %ld\n",(*msg));
     sem_up(&queue->sem_sen);
     sem_up(&queue->sem_rec);
 

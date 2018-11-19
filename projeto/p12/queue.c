@@ -12,16 +12,16 @@ void queue_append (queue_t **queue, queue_t *elem) {
 	else if (elem->prev != NULL || elem->next!=NULL)
 			printf ("\nElemento ligado a outra fila!\n");
 	else if (*queue == NULL){
-			 //	printf ("\nFila criada!\n");
+			printf ("\nFila criada!\n");
 			*queue=elem;
 			elem->prev=elem;
 			elem->next = elem;
 	 }
 	else {
 			elem->next=*queue;
-		elem->prev= elem->next->prev;
-		elem->prev->next = elem;
-		elem->next->prev = elem;
+			elem->prev= elem->next->prev;
+			elem->prev->next = elem;
+			elem->next->prev = elem;
 	}
 }
 
@@ -31,17 +31,20 @@ queue_t *queue_remove (queue_t **queue, queue_t *elem) {
     else if (*queue==NULL)
     	printf ("Fila vazia");
     else {
+
     	queue_t *rem ;
     	for (rem = *queue;rem!=elem && rem->next!=*queue ;rem=rem->next);
     	if (rem == elem){
     		if(rem==*queue){
+			//printf ("tas.kjdnçiawudbnçIQWUDBa na queue\n");
+
     			if (rem->next==rem)
     				*queue=NULL;
-    			else{
-						*queue=rem->next;
-					//	printf("\naqui mesmo\n");
-					}
 
+    			else{
+				*queue=rem->next;
+				//printf("\naqui mesmo\n");
+			}
     		}
     		rem->next->prev=rem->prev;
     		rem->prev->next=rem->next;
