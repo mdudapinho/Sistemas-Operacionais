@@ -32,7 +32,7 @@ void prodBody (void * saida)
 
       printf ("T%d enviou %d\n", task_id(), valor) ;
 	// dorme um intervalo aleatorio
-	printf("vai por p dormir na main\n");
+	    printf("vai por p dormir na main\n");
       task_sleep (random() % 3) ;
       printf("voltou na main dps do task sleep\n");
    }

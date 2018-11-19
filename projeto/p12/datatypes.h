@@ -47,7 +47,9 @@ typedef struct
 // estrutura que define um mutex
 typedef struct
 {
-  // preencher quando necessário
+    int status;
+    int valor;
+    task_t *fila;
 } mutex_t ;
 
 // estrutura que define uma barreira
@@ -67,8 +69,10 @@ typedef struct
   int contador;
   int max;
   int size;
-  task_t *fila_suspensas_rec;
-  task_t *fila_suspensas_sen;
+  //task_t fila_suspensas_rec;
+  //task_t fila_suspensas_sen;
+  semaphore_t sem_rec;
+  semaphore_t sem_sen;
   void *mensagens;
 
   // preencher quando necessário
