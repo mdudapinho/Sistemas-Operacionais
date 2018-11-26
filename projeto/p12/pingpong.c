@@ -245,7 +245,7 @@ int task_switch (task_t *task) {
 
     atual->ativacoes=atual->ativacoes+1;
     #ifdef DEBUG
-        //printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
+        printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
     #endif
     return swapcontext (&(antigo->context), &(atual->context));
 }
@@ -616,8 +616,11 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     #ifdef DEBUG
         printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d \n", atual->tid, queue->contador) ;
     #endif
+
     mensagem_t *men = (mensagem_t*)malloc(sizeof(mensagem_t));
-    men->msg = msg;
+    const void* crl =(msg);
+    bcopy (crl, &(men->msg), queue->size);
+    //men->msg = msg;
     men->prev=NULL;
     men->next=NULL;
     queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men));
@@ -628,15 +631,13 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         printf("essa porra e null\n" );
     }
 
-    //  mensagem_t *hey = men->prev;
-  //  int *b = hey->msg;
-  //  printf("men.prev %d\n", *b);
     queue->contador+=1;
     #ifdef DEBUG
         printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
     #endif
     sem_up (&queue->sem_rec);
     sem_up(&queue->sem_sen);
+
     return 0;
 }
 // recebe uma mensagem da fila
@@ -657,27 +658,17 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
 	      printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
     #endif
 
-    //int *fila = (queue->mensagens->msg);
-    //int ret = *fila;
-    //msg = ret;
-    ////printf("\t\tessa porra que eu quero  %d\n",ret);
-    //printf("\t\tessa porra que eu vou retornar %d\n",msg);
-
-      //retornado = &(queue->mensagens->msg);
-    //  msg = retornado;
-
     m_fila = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
     queue->contador-=1;
-    //printf("b %ld\n", *b);
-    /*
-    const void *src = (queue->mensagens);
 
-    bcopy (src, a->msg, queue->size);
-    */
-    printf("serio\n" );
-    msg = m_fila->msg;
-    printf("serio\n" );
-    //printf("\t\tessa porra que eu vou retornar   %ld\n",(*msg));
+    if (m_fila==NULL){
+        return -1;
+    }
+
+    const void* crl =&(m_fila->msg);
+    bcopy (crl, msg, queue->size);
+    //printf("PASSOU\n");
+
     sem_up(&queue->sem_sen);
     sem_up(&queue->sem_rec);
 
@@ -708,142 +699,3 @@ int mqueue_msgs (mqueue_t *queue) {
       #endif
     return (queue->contador);
 }
-
-/*
-int mqueue_send (mqueue_t *queue, void *msg) {
-    #ifdef DEBUG
-        printf ("mqueue_send: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_send: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-    int *a =  msg; //endereco da mensagem
-    //printf("a: %ld\t %ld\n", a, *a);
-    //printf ("sizeof(msg) %ld\t sizeof(queue->size)%ld \n", sizeof(*a), sizeof(queue->size));
-    if (sizeof(*a)!=sizeof(queue->size)){
-        #ifdef DEBUG
-            printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(*a), sizeof(queue->size)) ;
-        #endif
-        return -1;
-    }
-    if (queue->contador==queue->max){
-        #ifdef DEBUG
-            printf ("mqueue_send: task %d suspensa na fila de mensagens\n", atual->tid) ;
-        #endif
-        tasksMensagens+=1;
-        atual->status=6;
-        queue_append((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)atual);
-        task_switch(&dispatcher);
-      	#ifdef DEBUG
-            printf ("mqueue_send: task %d voltou a fila de prontas com erro -1\n", atual->tid) ;
-        #endif
-    }
-    #ifdef DEBUG
-        printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d \n", atual->tid, queue->contador) ;
-    #endif
-
-    mensagem_t men;
-    men.msg = msg;
-    men.prev=NULL;
-    men.next=NULL;
-    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(&men));
-    queue->contador+=1;
-    if (queue->fila_suspensas_rec){
-        printf("1\n");
-        aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)(queue->fila_suspensas_rec));
-        tasksMensagens-=1;
-        queue_append((queue_t**)&fila0,(queue_t*)aux);
-        userTasks+=1;
-    }
-    #ifdef DEBUG
-        printf ("mqueue_send: saindo com a tarefa %d e retornando com 0\n", atual->tid) ;
-    #endif
-    return 0;
-}
-*/
-/*int mqueue_recv (mqueue_t *queue, void *msg) {
-    #ifdef DEBUG
-        printf ("mqueue_recv: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_recv: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-    if (queue->contador==0){
-        #ifdef DEBUG
-            printf ("mqueue_recv: task %d suspensa na fila de mensagens\n", atual->tid) ;
-        #endif
-        tasksMensagens+=1;
-        atual->status=6;
-        atual->cod_erro_fila_mensagem=1;
-        queue_append((queue_t**)&(queue->fila_suspensas_sen),(queue_t*)atual);
-        task_switch(&dispatcher);
-	#ifdef DEBUG
-            printf ("mqueue_recv: task %d voltou a fila de prontas com erro -1\n", atual->tid) ;
-        #endif
-	return -1;
-    }
-    #ifdef DEBUG
-        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t queue->contador: %d\n", queue->contador) ;
-    #endif
-    mensagem_t *a = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
-    queue->contador-=1;
-    /*
-    const void *src = (queue->mensagens);
-
-    bcopy (src, a->msg, queue->size);
-
-    msg = a->msg;
-    if (queue->fila_suspensas_sen){
-        aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_sen),(queue_t*)(queue->fila_suspensas_sen));
-        tasksMensagens-=1;
-        queue_append((queue_t**)&fila0,(queue_t*)aux);
-        userTasks+=1;
-    }
-    return 0;
-}
-
-// destroi a fila, liberando as tarefas bloqueadas
-int mqueue_destroy (mqueue_t *queue) {
-    #ifdef DEBUG
-        printf ("mqueue_destroy: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_destroy: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-    while (queue->fila_suspensas_rec){
-        aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_rec),(queue_t*)(queue->fila_suspensas_rec));
-        tasksMensagens-=1;
-        aux->cod_erro_fila_mensagem=-1;
-        #ifdef DEBUG
-            printf ("mqueue_destroy: tirando a tarefa %d da fila de mensagens(rec) e passando para a fila de prontas\n", aux->tid) ;
-        #endif
-        queue_append((queue_t**)&fila0,(queue_t*)aux);
-        userTasks+=1;
-
-    }
-    while (queue->fila_suspensas_sen){
-        aux= (task_t*)queue_remove((queue_t**)&(queue->fila_suspensas_sen),(queue_t*)(queue->fila_suspensas_sen));
-        tasksMensagens-=1;
-        #ifdef DEBUG
-            printf ("mqueue_destroy: tirando a tarefa %d da fila de mensagens(sen) e passando para a fila de prontas\n", aux->tid) ;
-        #endif
-        queue_append((queue_t**)&fila0,(queue_t*)aux);
-        userTasks+=1;
-    }
-    queue->status=0;
-    queue->mensagens=NULL;
-    queue->fila_suspensas_sen=NULL;
-    queue->fila_suspensas_rec=NULL;
-    return 0;
-
-}
-*/
