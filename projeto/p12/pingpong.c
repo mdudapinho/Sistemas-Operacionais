@@ -9,8 +9,7 @@
 #include <sys/time.h>
 #define STACKSIZE 32768
 #define N 100
-//
-#define DEBUG 1
+//#define DEBUG 1
 struct sigaction action ;
 struct itimerval timer;
 
@@ -411,7 +410,7 @@ int sem_down (semaphore_t *s) {
     }
     if (atual->cod_erro_sem=1){
         #ifdef DEBUG
-           printf ("sem_down: task com codigo de erro\n") ;
+           printf ("sem_down: task %d retornando com codigo de erro\n", atual->tid) ;
         #endif
         return -1;
     }
@@ -613,8 +612,9 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         return -1;
     }
     sem_down(&(queue->sem_sen));
+    
     #ifdef DEBUG
-        printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d \n", atual->tid, queue->contador) ;
+        printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d +1\n", atual->tid, queue->contador) ;
     #endif
 
     mensagem_t *men = (mensagem_t*)malloc(sizeof(mensagem_t));
@@ -635,7 +635,7 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     #ifdef DEBUG
         printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
     #endif
-    sem_up (&queue->sem_rec);
+    sem_up(&queue->sem_rec);
     sem_up(&queue->sem_sen);
 
     return 0;
@@ -653,8 +653,10 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
         return -1;
     }
     sem_down(&queue->sem_rec);
+    if (queue->contador<=0)
+	sem_down(&queue->sem_rec);
     #ifdef DEBUG
-        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d e valor %d\n", queue->contador, queue->sem_rec.valor) ;
+        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d -1 e valor %d\n", queue->contador, queue->sem_rec.valor) ;
 	      printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
     #endif
 
@@ -668,7 +670,6 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
     const void* crl =&(m_fila->msg);
     bcopy (crl, msg, queue->size);
     //printf("PASSOU\n");
-
     sem_up(&queue->sem_sen);
     sem_up(&queue->sem_rec);
 
