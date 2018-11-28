@@ -332,8 +332,7 @@ int task_join (task_t *task) {
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
         #endif
         task_suspend (NULL, &(task->parent));
-	printf("saiu do taskjoin\tvalor_task_exit: %d\n", valor_task_exit);
-        return valor_task_exit;
+	return valor_task_exit;
     }
     else{
         #ifdef DEBUG
@@ -592,7 +591,11 @@ int mqueue_create (mqueue_t *queue, int max, int size) {
 }
 
 // envia uma mensagem para a fila
+/*A funcao recebe uma Fila de mensagens e uma mensagens que deve ser colocada na fila de messagens da Fila de mensgens 
+(a Fila tem um atributo chamado fila...)
+*/
 int mqueue_send (mqueue_t *queue, void *msg) {
+/*Primeiro faco os testes iniciais para saber se a Fila eh valida e se o tamanho dela eh compativel*/
     #ifdef DEBUG
         printf ("mqueue_send: aqui\n") ;
     #endif
@@ -603,38 +606,31 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         return -1;
     }
     int *a =  msg; //endereco da mensagem
-    //printf("a: %ld\t %ld\n", a, *a);
-    //printf ("sizeof(msg) %ld\t sizeof(queue->size)%ld \n", sizeof(*a), sizeof(queue->size));
     if (sizeof(*a)!=sizeof(queue->size)){
         #ifdef DEBUG
             printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(*a), sizeof(queue->size)) ;
         #endif
         return -1;
     }
+//Requere o acesso a fila de mensagens
     sem_down(&(queue->sem_sen));
     
     #ifdef DEBUG
         printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d +1\n", atual->tid, queue->contador) ;
     #endif
-
+//Cria uma mensagem nova e adiciona ela na fila de mensagens
     mensagem_t *men = (mensagem_t*)malloc(sizeof(mensagem_t));
     const void* crl =(msg);
     bcopy (crl, &(men->msg), queue->size);
-    //men->msg = msg;
     men->prev=NULL;
     men->next=NULL;
     queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men));
-
-    //printf("a: %ld \tqueue->mensagens \n", queue->mensagens->msg);
-    //  printf("tamanho :%d do endereco %p\n", queue_size ((queue_t *)queue->mensagens), queue->mensagens);
-	  if (men->prev==NULL){
-        printf("essa porra e null\n" );
-    }
 
     queue->contador+=1;
     #ifdef DEBUG
         printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
     #endif
+//Acorda alguem que esteja esperando por mensagens
     sem_up(&queue->sem_rec);
     sem_up(&queue->sem_sen);
 
@@ -643,6 +639,7 @@ int mqueue_send (mqueue_t *queue, void *msg) {
 // recebe uma mensagem da fila
 int retornado;
 int mqueue_recv (mqueue_t *queue, void *msg) {
+/*Primeiro faco os testes iniciais para saber se a Fila eh valida e se o tamanho dela eh compativel*/
     #ifdef DEBUG
         printf ("mqueue_recv: aqui\n") ;
     #endif
@@ -652,14 +649,15 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
         #endif
         return -1;
     }
+//requere acesso a fila de mensagens 
     sem_down(&queue->sem_rec);
     if (queue->contador<=0)
 	sem_down(&queue->sem_rec);
     #ifdef DEBUG
         printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d -1 e valor %d\n", queue->contador, queue->sem_rec.valor) ;
-	      printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
+	printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
     #endif
-
+//Recebe a mensagem na fila e coloca no ponteiro msg
     m_fila = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
     queue->contador-=1;
 
@@ -686,6 +684,7 @@ int mqueue_destroy (mqueue_t *queue) {
         #endif
         return -1;
     }
+//Chama as funcoes para destruir os semafors, sendo que as tasks adormecidas vao ser acordadas e colocadas na fila de prontas
     sem_destroy(&queue->sem_rec);
     sem_destroy(&queue->sem_sen);
     queue->status=0;
