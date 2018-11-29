@@ -3,7 +3,6 @@
 #include "queue.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <ucontext.h>
 #include <signal.h>
 #include <sys/time.h>
@@ -13,10 +12,7 @@
 struct sigaction action ;
 struct itimerval timer;
 
-task_t t_main, dispatcher;
-task_t *fila0= NULL,*antigo=NULL,*atual, *next, *fila_espera=NULL, *aux;
-task_t *adormecidas=NULL, *suspensas_mensagens=NULL; //Suspensas->por causa da fila de mensagens
-
+task_t t_main, dispatcher, *fila0= NULL,*antigo=NULL,*atual, *next, *fila_espera=NULL, *aux, *adormecidas=NULL;
 int cont_id=1;
 int userTasks=0;
 int tasksSemaforo =0;
@@ -24,11 +20,6 @@ int tick=19;
 int ticks=0; //contador geral de ticks
 int valor_task_exit=0;
 int tasksAdormecidas=0;
-int tasksBarreira=0;
-int tasksMensagens=0;
-
-//mensagem_t *men;
-mensagem_t *m_fila;
 
 void task_yield (){
     #ifdef DEBUG
@@ -125,18 +116,17 @@ void dispatcher_body (){
     #ifdef DEBUG
         printf ("dispatcher_body chamado\n") ;
     #endif
-    while (userTasks || tasksAdormecidas|| tasksSemaforo || tasksBarreira){
+    while (userTasks || tasksAdormecidas|| tasksSemaforo){
         next = scheduler();
-
+	
         if (next){
-	     //printf ("dispatcher_body\t userTasks %d||tasksAdormecidas %d||tasksSemaforo %d \n",userTasks,tasksAdormecidas,tasksSemaforo);
+	     //printf ("dispatcher_body\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
             if (setitimer (ITIMER_REAL, &timer, 0) < 0)
             {
               perror ("Erro em setitimer: ") ;
               exit (1) ;
             }
             task_switch(next);
-	    //printf("voltou no dispatcher dps de trocar com a proxima tarefa\n");
         }
     }
     #ifdef DEBUG
@@ -160,9 +150,6 @@ void pingpong_init () {
     t_main.parent=NULL;
     t_main.exit_parent=0;
     t_main.adormecida=0;
-    t_main.cod_erro_sem=0;
-    t_main.cod_erro_bar=0;
-    t_main.cod_erro_fila_mensagem=0;
     atual=&t_main;    //queue_append ((queue_t **) &fila0, (queue_t*) atual);
     setvbuf (stdout, 0, _IONBF, 0) ;
     action.sa_handler = task_yield_temp ;
@@ -211,9 +198,6 @@ int task_create (task_t *task, void (*start_func)(void *), void *arg) {
     task->parent=NULL;
     task->exit_parent=0;
     task->adormecida=0;
-    task->cod_erro_sem=0;
-    task->cod_erro_bar=0;
-    task->cod_erro_fila_mensagem=0;
     makecontext (&(task->context), (void*)(*start_func), 1, arg);
     queue_append((queue_t**)&fila0,(queue_t*)task);
     userTasks++;
@@ -241,11 +225,10 @@ int task_switch (task_t *task) {
         printf ("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", antigo->tid, antigo->tick_total, antigo->ntick, antigo->ativacoes);
 
     }
-
-    atual->ativacoes=atual->ativacoes+1;
     #ifdef DEBUG
-        printf ("task_switch: passou da tarefa %d para a %d\n", antigo->tid, atual->tid) ;
+        printf ("task_switch: passou para a tarefa %d\n", atual->tid) ;
     #endif
+    atual->ativacoes=atual->ativacoes+1;
     return swapcontext (&(antigo->context), &(atual->context));
 }
 
@@ -328,11 +311,11 @@ unsigned int systime (){
 /*A tarefa atual e colocada suspensa na fila da tarefa task->parent ate que a mesma finalize*/
 int task_join (task_t *task) {
     if(task!=NULL && task->status!=1 ) {
+        task_suspend (NULL, &(task->parent));
         #ifdef DEBUG
             printf ("task_join: suspendendo tarefa %d a fila de prontas\n", atual->tid) ;
         #endif
-        task_suspend (NULL, &(task->parent));
-	return valor_task_exit;
+        return valor_task_exit;
     }
     else{
         #ifdef DEBUG
@@ -352,41 +335,32 @@ void task_sleep (int t){
     //printf ("task_sleep: adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
 
     #ifdef DEBUG
-        printf ("task_sleep: (antes)adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
+        printf ("task_sleep: adormecendo a tarefa %d por %d ms \n", atual->tid, atual->adormecida) ;
     #endif
     task_switch (&dispatcher);
-	//printf("eita\n\n");
-    #ifdef DEBUG
-        printf ("\n\ntask_sleep: (depois)a tarefa %d acordou \n\n", atual->tid) ;
-    #endif
 }
 
 // semáforos
-/*cria um semáforo com valor inicial "value", cada semaforo tem uma variavel status p saber se
-o mesmo pode ser usado e um contador para saber quantas tarefas tao na fila desse semaforo*/
+// cria um semáforo com valor inicial "value"
 int sem_create (semaphore_t *s, int value) {
-  //  printf("sem_create\n" );
     if (s->status==1){
       	#ifdef DEBUG
-            printf ("sem_create: semaforo ja existe\n") ;
+            printf ("sem_down: semaforo ja existe\n") ;
         #endif
-    	  return -1;
+    	return -1;
     }
-  //  printf("sem_create\n" );
     s->status=1;
     s->valor = value;
     s->contador=0;
     s->fila = NULL;
     #ifdef DEBUG
-        printf ("sem_create: semaforo criado com valor %d\n", value) ;
+        printf ("sem_down: semaforo criado com valor %d\n", value) ;
     #endif
     return 0;
 }
 // requisita o semáforo
-/*olhar no livro, ta mais bem explicado:
-Se tiver uma tarefa esperando na fila, a tarefa atual aguarda na fila do semaforo, caso nao tenha,
-ela pode continuar a sua execucao*/
 int sem_down (semaphore_t *s) {
+    //printf("sem_down inicio\n");
     if (s->status!=1){
        #ifdef DEBUG
           printf ("sem_down: semaforo inexistente\n") ;
@@ -407,16 +381,9 @@ int sem_down (semaphore_t *s) {
         //printf("sem_down inicio fim 2\n");
 	      task_switch (&dispatcher);
     }
-    if (atual->cod_erro_sem=1){
-        #ifdef DEBUG
-           printf ("sem_down: task %d retornando com codigo de erro\n", atual->tid) ;
-        #endif
-        return -1;
-    }
     return 0;
 }
 // libera o semáforo
-/*Acorda a proxima tarefa que estiver esperando na fila do semaforo-se houver alguma, claro*/
 int sem_up (semaphore_t *s) {
     //printf("sem_up inicio\n");
     if (s->status!=1){
@@ -440,265 +407,28 @@ int sem_up (semaphore_t *s) {
     }
     return 0;
 }
-// destroi o semáforo e as tarefas que estavam na fila do semaforo passam para a fila de prontas
+// destroi o semáforo, liberando as tarefas bloqueadas
 int sem_destroy (semaphore_t *s) {
     if (s->status!=1){
-  	  #ifdef DEBUG
-          printf ("sem_down: semaforo inexistente\n") ;
-      #endif
-  	  return -1;
+	#ifdef DEBUG
+            printf ("sem_down: semaforo inexistente\n") ;
+        #endif
+	return -1;
     }
     s->status=0;
     task_t *elem = s->fila;
     while(s->contador>0){
-	     #ifdef DEBUG
-            printf ("sem_down: semaforo removendo tarefa %d do semaforo e colocando na fila \n", (s->fila)->tid) ;
-            printf ("sem_destroy\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
+	#ifdef DEBUG
+        printf ("sem_down: semaforo removendo tarefa %d do semaforo e colocando na fila \n", (s->fila)->tid) ;
+        printf ("sem_destroy\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo) ;
         #endif
 
       	aux= (task_t*)queue_remove((queue_t**)&elem,(queue_t*)elem);
         s->contador--;
-        aux->status=0;
-        aux->cod_erro_sem=1;
       	tasksSemaforo--;
         queue_append((queue_t**)&fila0,(queue_t*)aux);
         userTasks++;
     }
     s=NULL;
     return 0;
-}
-
-// barreiras
-// Inicializa uma barreira
-int barrier_create (barrier_t *b, int n) {
-    if (b->status==1){
-      #ifdef DEBUG
-          printf ("barrier_create: problema ao criar barreira - barreira ja existente!\n") ;
-      #endif
-        return -1;
-    }
-    b->status=1;
-    b->lim=n;
-    b->contador=0;
-    b->fila=NULL;
-    if(b){
-        #ifdef DEBUG
-            printf ("barrier_create: barreira criada!\n") ;
-        #endif
-        return 0;
-    }
-    #ifdef DEBUG
-        printf ("barrier_create: problema ao criar barreira - barreira nao criada!\n") ;
-    #endif
-    return -1;
-
-}
-
-// Chega a uma barreira
-/*Se a barreira tiver cheia (com o limite alcancado), ela deve liberar todas as tarefas, ou seja,
-retornar elas para a fila de tarefas prontas*/
-int barrier_join (barrier_t *b) {
-    if (b->status!=1){
-        #ifdef DEBUG
-            printf ("barrier_join: Barreira nao existe\n") ;
-        #endif
-        return -1;
-    }
-    /*Se tiver faltando so uma tarefa, ela nao precisa entrar na fila da barreira porque ela vai ser liberada logo depois*/
-    if(b->contador<b->lim-1){
-        atual->status=5;
-        queue_append((queue_t**)&(b->fila),(queue_t*)atual);
-        b->contador++;
-        tasksBarreira++;
-        #ifdef DEBUG
-            printf ("barrier_join: colocando a tarefa %d na barreira com %d tasks\n", atual->tid, b->contador) ;
-            printf ("barrier_join\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d || tasksBarreira %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo, tasksBarreira) ;
-        #endif
-        task_switch (&dispatcher);
-        return 0;
-    }
-    #ifdef DEBUG
-        printf ("barrier_join: barreira a tarefa %d acordou as demais e continua \n", atual->tid) ;
-    #endif
-    task_t *elem = b->fila;
-    /*Vai liberando quem estiver na barreira ate nao restar nenhuma task*/
-    while(b->contador){
-        #ifdef DEBUG
-            printf ("barrier_join: barreira removendo tarefa %d e colocando na fila de prontas \n", (b->fila)->tid) ;
-            printf ("barrier_join\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d || tasksBarreira %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo, tasksBarreira) ;
-        #endif
-        aux= (task_t*)queue_remove((queue_t**)&elem,(queue_t*)elem);
-        aux->status=0;
-        b->contador--;
-        tasksBarreira--;
-        queue_append((queue_t**)&fila0,(queue_t*)aux);
-        userTasks++;
-    }
-}
-
-// Destrói uma barreira
-/*Se tiver alguma tarefa na barreira vai liberando, ou seja, passa para a fila de prontas*/
-int barrier_destroy (barrier_t *b) {
-  if (b->status!=1){
-      #ifdef DEBUG
-          printf ("barrier_destroy: semaforo inexistente\n") ;
-      #endif
-      return -1;
-  }
-  b->status=0;
-  task_t *elem = b->fila;
-  while(b->contador>0){
-     #ifdef DEBUG
-          printf ("barrier_destroy: barreira removendo tarefa %d e colocando na fila \n", (b->fila)->tid) ;
-          printf ("barrier_join\t userTasks %d || tasksAdormecidas %d || tasksSemaforo %d || tasksBarreira %d \n\n", userTasks, tasksAdormecidas, tasksSemaforo, tasksBarreira) ;
-      #endif
-
-      aux= (task_t*)queue_remove((queue_t**)&elem,(queue_t*)elem);
-      b->contador--;
-      aux->status=0;
-      aux->cod_erro_bar=1;
-      tasksBarreira--;
-      queue_append((queue_t**)&fila0,(queue_t*)aux);
-      userTasks++;
-  }
-  b=NULL;
-  return 0;
-}
-
-//Fila de mensgaens
-int mqueue_create (mqueue_t *queue, int max, int size) {
-    #ifdef DEBUG
-        printf ("mqueue_create: aqui com a tarefa %d\n", atual->tid) ;
-    #endif
-    if (queue->status==1){
-        #ifdef DEBUG
-            printf ("mqueue_create: fila de mensagens ja existe\n") ;
-        #endif
-      return -1;
-    }
-    queue->status=1;
-    queue->max=max;
-    queue->size=size;
-    queue->contador=0;
-    sem_create (&(queue->sem_rec), 0);
-    sem_create (&(queue->sem_sen), 1);
-    queue->mensagens=NULL;
-    #ifdef DEBUG
-	      printf ("endereco da fila de mensagens : %ld\n", &(queue->mensagens));
-        printf ("mqueue_create: fila de mensagens criada com tamanho de %d e maximo de %d mensagens \n", queue->size, queue->max) ;
-    #endif
-    return 0;
-}
-
-// envia uma mensagem para a fila
-/*A funcao recebe uma Fila de mensagens e uma mensagens que deve ser colocada na fila de messagens da Fila de mensgens 
-(a Fila tem um atributo chamado fila...)
-*/
-int mqueue_send (mqueue_t *queue, void *msg) {
-/*Primeiro faco os testes iniciais para saber se a Fila eh valida e se o tamanho dela eh compativel*/
-    #ifdef DEBUG
-        printf ("mqueue_send: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_send: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-    int *a =  msg; //endereco da mensagem
-    if (sizeof(*a)!=sizeof(queue->size)){
-        #ifdef DEBUG
-            printf ("mqueue_send: mensagem fora do padrao\ntamanho da mensagem %ld\ttamanho aceito%ld\n", sizeof(*a), sizeof(queue->size)) ;
-        #endif
-        return -1;
-    }
-//Requere o acesso a fila de mensagens
-    sem_down(&(queue->sem_sen));
-    
-    #ifdef DEBUG
-        printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d +1\n", atual->tid, queue->contador) ;
-    #endif
-//Cria uma mensagem nova e adiciona ela na fila de mensagens
-    mensagem_t *men = (mensagem_t*)malloc(sizeof(mensagem_t));
-    const void* crl =(msg);
-    bcopy (crl, &(men->msg), queue->size);
-    men->prev=NULL;
-    men->next=NULL;
-    queue_append((queue_t**)&(queue->mensagens),(queue_t*)(men));
-
-    queue->contador+=1;
-    #ifdef DEBUG
-        printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
-    #endif
-//Acorda alguem que esteja esperando por mensagens
-    sem_up(&queue->sem_rec);
-    sem_up(&queue->sem_sen);
-
-    return 0;
-}
-// recebe uma mensagem da fila
-int retornado;
-int mqueue_recv (mqueue_t *queue, void *msg) {
-/*Primeiro faco os testes iniciais para saber se a Fila eh valida e se o tamanho dela eh compativel*/
-    #ifdef DEBUG
-        printf ("mqueue_recv: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_recv: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-//requere acesso a fila de mensagens 
-    sem_down(&queue->sem_rec);
-    while (queue->contador<=0){
-	if(queue->status!=1){
-            return -1;
-    	}
-    }
-    #ifdef DEBUG
-        printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d -1 e valor %d\n", queue->contador, queue->sem_rec.valor) ;
-	printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
-    #endif
-//Recebe a mensagem na fila e coloca no ponteiro msg
-    m_fila = (mensagem_t*)queue_remove((queue_t**)&(queue->mensagens),(queue_t*)(queue->mensagens));
-    queue->contador-=1;
-
-    if (m_fila==NULL){
-        return -1;
-    }
-
-    const void* crl =&(m_fila->msg);
-    bcopy (crl, msg, queue->size);
-    //printf("PASSOU\n");
-    sem_up(&queue->sem_sen);
-    sem_up(&queue->sem_rec);
-
-    return 0;
-}
-// destroi a fila, liberando as tarefas bloqueadas
-int mqueue_destroy (mqueue_t *queue) {
-    #ifdef DEBUG
-        printf ("mqueue_destroy: aqui\n") ;
-    #endif
-    if(queue->status!=1){
-        #ifdef DEBUG
-            printf ("mqueue_destroy: fila de mensagens nao existe\n") ;
-        #endif
-        return -1;
-    }
-//Chama as funcoes para destruir os semafors, sendo que as tasks adormecidas vao ser acordadas e colocadas na fila de prontas
-    sem_destroy(&queue->sem_rec);
-    sem_destroy(&queue->sem_sen);
-    queue->status=0;
-    queue->mensagens=NULL;
-    return 0;
-
-}
-// informa o número de mensagens atualmente na fila
-int mqueue_msgs (mqueue_t *queue) {
-      #ifdef DEBUG
-          printf ("mqueue_msgs: tem %d mensagens na fila de mensagens\n",queue->contador ) ;
-      #endif
-    return (queue->contador);
 }
