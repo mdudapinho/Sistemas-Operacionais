@@ -580,8 +580,9 @@ int mqueue_create (mqueue_t *queue, int max, int size) {
     queue->max=max;
     queue->size=size;
     queue->contador=0;
-    sem_create (&(queue->sem_rec), 0);
-    sem_create (&(queue->sem_sen), 1);
+    sem_create (&(queue->sem_vaga), 1);
+    sem_create (&(queue->sem_item), 0);
+    sem_create (&(queue->sem_buffer), max);
     queue->mensagens=NULL;
     #ifdef DEBUG
 	      printf ("endereco da fila de mensagens : %ld\n", &(queue->mensagens));
@@ -613,8 +614,9 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         return -1;
     }
 //Requere o acesso a fila de mensagens
-    sem_down(&(queue->sem_sen));
-    
+    sem_down(&(queue->sem_vaga));
+    sem_down(&(queue->sem_buffer));
+
     #ifdef DEBUG
         printf ("mqueue_send: mensagem adicionada a fila pela task %d \t queue->contador: %d +1\n", atual->tid, queue->contador) ;
     #endif
@@ -631,8 +633,8 @@ int mqueue_send (mqueue_t *queue, void *msg) {
         printf ("mqueue_send: saindo com a tarefa %d e retornando com 0 e valor %d\n", atual->tid, queue->sem_sen.valor ) ;
     #endif
 //Acorda alguem que esteja esperando por mensagens
-    sem_up(&queue->sem_rec);
-    sem_up(&queue->sem_sen);
+    sem_up(&(queue->sem_buffer));
+    sem_up(&(queue->sem_item));
 
     return 0;
 }
@@ -650,12 +652,9 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
         return -1;
     }
 //requere acesso a fila de mensagens 
-    sem_down(&queue->sem_rec);
-    while (queue->contador<=0){
-	if(queue->status!=1){
-            return -1;
-    	}
-    }
+    sem_down(&(queue->sem_item));
+    sem_down(&(queue->sem_buffer));
+    
     #ifdef DEBUG
         printf ("mqueue_recv: mensagem recebida da fila de mensagens\t mensagens na fila: %d -1 e valor %d\n", queue->contador, queue->sem_rec.valor) ;
 	printf("tamanho :%d\n", queue_size ((queue_t *)queue->mensagens));
@@ -671,8 +670,8 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
     const void* crl =&(m_fila->msg);
     bcopy (crl, msg, queue->size);
     //printf("PASSOU\n");
-    sem_up(&queue->sem_sen);
-    sem_up(&queue->sem_rec);
+    sem_up(&(queue->sem_buffer));
+    sem_up(&(queue->sem_vaga));
 
     return 0;
 }
@@ -688,8 +687,9 @@ int mqueue_destroy (mqueue_t *queue) {
         return -1;
     }
 //Chama as funcoes para destruir os semafors, sendo que as tasks adormecidas vao ser acordadas e colocadas na fila de prontas
-    sem_destroy(&queue->sem_rec);
-    sem_destroy(&queue->sem_sen);
+    sem_destroy(&queue->sem_buffer);
+    sem_destroy(&queue->sem_vaga);
+    sem_destroy(&queue->sem_item);
     queue->status=0;
     queue->mensagens=NULL;
     return 0;

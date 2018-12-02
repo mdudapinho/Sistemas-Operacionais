@@ -75,8 +75,9 @@ typedef struct
   int contador;
   int max;
   int size;
-  semaphore_t sem_rec;
-  semaphore_t sem_sen;
+  semaphore_t sem_buffer;
+  semaphore_t sem_vaga;
+  semaphore_t sem_item;
   mensagem_t *mensagens;
 } mqueue_t ;
 
